@@ -1,0 +1,144 @@
+---
+title: "Automobile transmission type and fuel mileage"
+author: "Timo Voipio"
+date: "21 Aug 2016"
+output:
+    pdf_document:
+      latex_engine: xelatex
+#mainfont: "texgyretermes-regular.otf"
+#mathfont: "texgyretermes-math.otf"
+fontsize: 12pt
+classoption: a4paper
+---
+
+```{r echo=FALSE}
+library(knitr)
+
+# TRUE relegates most code chunks to appendices and disables result
+# output by default
+tidydoc <- FALSE
+
+# figure width 4 inches (PDF output), height = width, center figures
+opts_chunk$set(fig.width=4, fig.height=4, fig.align='center')
+
+# Increase the penalty for using scientific notation (to format
+# numbers like 10000 normally, not in scientific notation)
+options(scipen = 3)
+
+if (tidydoc)
+{
+    opts_chunk$set(results='hide', echo=FALSE, size='scriptsize')
+}
+```
+
+# Executive summary
+
+# Introduction
+
+# Exploratory analysis
+
+```{r init}
+
+library(datasets)
+data("mtcars")
+
+library(ggplot2)
+library(GGally)
+```
+
+The dataset includes the following variables:
+
+Column name | Variable description and units
+------------|-------------------------------
+`mpg`       | Miles/(US) gallon (*gas mileage; 235 l/100 km = 1/(1 mpg)*)
+`cyl`       | Number of cylinders
+`disp`      | Displacement (cu.in.) (*1 litre ≈ 61.0 cu in*)
+`hp`        | Gross horsepower (*1 kW ≈ 1.34 hp*)
+`drat`      | Rear axle ratio (*driveshaft rpm/axle rpm*\footnote{"the drive-axle ratio is a comparison of the number of gear teeth on the ring gear of the rear axle and the pinion gear on the driveshaft. - - For example, a 4.11:1 ratio means there are 4.11 teeth on the axle's ring gear for each tooth on the driveshaft's pinion gear. Or, put another way, the driveshaft must turn 4.11 times to turn the rear wheels one full revolution. - - typical rule of thumb: The higher the numerical ratio, the slower the gear will be. This higher ratio gives a truck greater pulling power, but since the engine must work harder to spin the driveshaft more times for each turn of the rear wheels, top-end speed and fuel economy are sacrificed." Quoted from [here][drat]})
+`wt`        | Weight (1000 lbs *≈ 454 kg*)
+`qsec`      | 1/4 mile time
+`vs`        | V/S [*V engine (0) or straight engine (1)*]
+`am`        | Transmission (0 = automatic, 1 = manual)
+`gear`      | Number of forward gears
+`carb`      | Number of carburetors
+
+```{r explore}
+
+# Possibly relevant covariates:
+# disp, hp, cyl (likely correlated with each other)
+# wt
+# drat 
+# am (0 auto/1 manual; subject of interest)
+# Outcome:
+# mpg
+
+# Convert transmission, cylinder count, carburetor count, and engine type
+# to factor variables
+mtcars$am <- factor(mtcars$am, levels = c(0, 1),
+                    labels = c("auto", "manual"))
+mtcars$cyl <- factor(mtcars$cyl)
+mtcars$carb <- factor(mtcars$carb)
+mtcars$vs <- factor(mtcars$vs, levels = c(0, 1),
+                    labels = c("v", "straight"))
+
+# Create a new data frame for metric variables
+mtcars.si <- mtcars
+mtcars.si$cons <- 235/mtcars$mpg # consumption in litres/100 km
+mtcars.si$wt <- mtcars$wt*0.454 # weight in tonnes
+mtcars.si$disp <- mtcars$disp/61.0 # displacement in litres
+mtcars.si$pw <- mtcars$hp/1.34 # power in kilowatts
+mtcars.si$mpg <- NULL
+mtcars.si$hp <- NULL
+
+# Create a new variable for gross power/weight ratio
+# (hp/1000 lb; 1 hp/1000 lb ≈ 1.64 W/kg)
+mtcars$pwr <- mtcars$hp/mtcars$wt
+
+# kW/tonne
+mtcars.si$pwr <- mtcars.si$pw / mtcars.si$wt
+
+fit1 <- lm(mpg ~ am, mtcars)
+fitall <- lm(mpg ~ . - pwr, mtcars)
+
+g <- ggplot(mtcars, aes(x = am, y = mpg))
+g <- g + geom_boxplot() +
+    stat_summary(fun.y = mean, geom = "point")
+g <- ggtitle ("Gas mileage and transmission type")
+
+print(g)
+
+ggpairs(mtcars)
+
+summary(fit1)
+
+
+fit2.w <- lm(mpg ~ am + wt, mtcars)
+fit2.d <- lm(mpg ~ am + disp, mtcars)
+fit2.h <- lm(mpg ~ am + hp, mtcars) # greatest reduction in sum(^2)
+
+anova(fit1, fit2.w)
+anova(fit1, fit2.d)
+anova(fit1, fit2.h)
+
+fit3.w <- lm(mpg ~ am + hp + wt, mtcars) # greatest reduction in sum(^2)
+fit3.d <- lm(mpg ~ am + hp + disp, mtcars)
+fit3.c <- lm(mpg ~ am + hp + cyl, mtcars)
+
+anova(fit1, fit2.h, fit3.w)
+anova(fit1, fit2.h, fit3.d)
+anova(fit1, fit2.h, fit3.c)
+
+fit4.d <- lm(mpg ~ am + hp + wt + disp, mtcars)
+fit4.c <- lm(mpg ~ am + hp + wt + cyl, mtcars) # smallest sum(^2), but fit4.c not really significant
+
+anova(fit1, fit2.h, fit3.w, fit4.d)
+anova(fit1, fit2.h, fit3.w, fit4.c)
+
+fit5 <- lm(mpg ~ am + hp + wt + disp + cyl, mtcars)
+
+anova(fit1, fit2.h, fit3.w, fit4.d, fit5)
+anova(fit1, fit2.h, fit3.w, fit4.c, fit5) 
+
+```
+
+[drat]: http://www.worktruckonline.com/channel/vehicle-research/article/story/2011/07/10-factors-to-consider-when-spec-ing-drive-axle-ratios-for-medium-duty-trucks.aspx "10 Factors to Consider when Spec’ing Drive-Axle Ratios for Medium-Duty Trucks"
