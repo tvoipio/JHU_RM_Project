@@ -9,6 +9,8 @@ output:
 #mathfont: "texgyretermes-math.otf"
 fontsize: 12pt
 classoption: a4paper
+# This file is a WIP for using metric units (out of general interest);
+# original question requires MPG
 ---
 
 ```{r echo=FALSE}
@@ -76,8 +78,8 @@ Column name | Variable description and units
 # to factor variables
 mtcars$am <- factor(mtcars$am, levels = c(0, 1),
                     labels = c("auto", "manual"))
-mtcars$cyl <- factor(mtcars$cyl)
-mtcars$carb <- factor(mtcars$carb)
+#mtcars$cyl <- factor(mtcars$cyl)
+#mtcars$carb <- factor(mtcars$carb)
 mtcars$vs <- factor(mtcars$vs, levels = c(0, 1),
                     labels = c("v", "straight"))
 
@@ -91,10 +93,7 @@ mtcars.si$mpg <- NULL
 mtcars.si$hp <- NULL
 
 # Create a new variable for gross power/weight ratio
-# (hp/1000 lb; 1 hp/1000 lb ≈ 1.64 W/kg)
-mtcars$pwr <- mtcars$hp/mtcars$wt
-
-# kW/tonne
+# (kW/tonne)
 mtcars.si$pwr <- mtcars.si$pw / mtcars.si$wt
 
 fit1 <- lm(mpg ~ am, mtcars)
