@@ -1,0 +1,4 @@
+# knitr and R markdown default cache directories
+/*_cache/
+# knitr file directories
+/*_files/
