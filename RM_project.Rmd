@@ -7,16 +7,21 @@ output:
       latex_engine: xelatex
 #mainfont: "texgyretermes-regular.otf"
 #mathfont: "texgyretermes-math.otf"
-fontsize: 12pt
+fontsize: 10pt
 classoption: a4paper
 ---
 
 ```{r echo=FALSE}
-library(knitr)
+# TRUE relegates most code chunks to appendices, disables result
+# output by default and disables warnings
+tidydoc <- TRUE
 
-# TRUE relegates most code chunks to appendices and disables result
-# output by default
-tidydoc <- FALSE
+if (tidydoc)
+{
+    options(warn = -1)
+}
+
+library(knitr)
 
 # figure width 4 inches (PDF output), height = width, center figures
 opts_chunk$set(fig.width=4, fig.height=4, fig.align='center')
@@ -66,9 +71,11 @@ Column name | Variable description and units
 `gear`      | Number of forward gears
 `carb`      | Number of carburetors
 
+[drat]: http://www.worktruckonline.com/channel/vehicle-research/article/story/2011/07/10-factors-to-consider-when-spec-ing-drive-axle-ratios-for-medium-duty-trucks.aspx "10 Factors to Consider when Spec’ing Drive-Axle Ratios for Medium-Duty Trucks"
+
 The research question stated in the project assignment exclusively asks for analysis of the gas mileage (MPG), so for consistency reasons the data is not converted into SI units, even though the conversion would make the data more accessible to most parts of the world. Additionally, analysing the consumption via the amount of fuel consumed per fixed distance (e.g., litres/100 km) would be both physically and statistically more reasonable choice\footnote{As suggested also by Henderson and Velleman} than gas mileage. However, as the assignment explicitly asks for effect of transmission type on gas mileage, the data will not be converted for analysis. As suggested by Henderson and Velleman, a new variable `pwr` (hp/1000 lbs) is created for the power-to-weight ratio.
 
-```{r explore}
+```{r explore, fig.height=4/1.609, out.width="3in", out.height="1.86in"}
 
 # Convert transmission type, (cylinder count, carburetor count), and engine type
 # to factor variables
@@ -95,14 +102,13 @@ print(g)
 
 The plot shows that the mean gas mileage of cars with manual transmission is significantly higher (i.e., better) compared to cars with automatic transmission. However, the plot similarly illustrates that the gas mileage seems to have a clear negative correlation with the weight of the vehicle. We therefore conclude that analyzing at the effect of transmission type on the gas mileage cannot meaningfully be done without adjusting for the effect of other factors affecting the fuel efficiency.
 
-Next we try to isolate the effect of the transmission type by fitting a linear model to the data. This entails also model selection, i.e., which variables best explain the variability of MPG, without overfitting. The dataset contains variables which we would expect to be correlated to at least some degree, such as engine displacement and power, and power-to-weight ratio and quarter-mile time (see the Appendix for a pairs plot).
+# Linear model for gas mileage
+
+Next we try to isolate the effect of the transmission type by fitting a linear model to the data. This entails also model selection, i.e., which variables best explain the variability of MPG, without overfitting. The dataset contains variables which we would expect to be correlated to at least some degree, such as engine displacement and power, and power-to-weight ratio and quarter-mile time (see the Appendix for a pairs plot). In order to keep the model interpretable, we consider the following variables whose connection to gas mileage has a logical explanation: `wt`, `disp`, `pwr`, `qsec`, and `am`.
+
+We approach the model fitting by starting from a model with `am` as the only regressor. Additional regressors are then added, one at a time, always choosing the one which results in the smallest deviance for the resulting model. The ANOVA table resulting from this process is presented below.
 
 ```{r modelselect}
-fitvars <- c("wt", "disp", "pwr", "drat", "am")
-resids <- numeric(0)
-modelvars <- character(0)
-fits <- vector("list", length(fitvars))
-
 # Function for constructing a formula containing the desired variables
 fitformula <- function(fitvar, modelvars = NULL, keepvar = NULL) {
     modelstr <- paste("mpg ~", paste(c(keepvar, modelvars, fitvar),
@@ -118,36 +124,16 @@ dev.next <- function(fitvar, modelvars = NULL)
     deviance(fit)
 }
 
-# Iteratively add variables to the model until "am" is one of them
-# This may be quite naive approach to automated model selection,
-# but it seems to work, after a fashion at least
-stopifnot("am" %in% fitvars)
-while (!("am" %in% modelvars))
-{
-    # Determine the deviances of the linear models when each of the
-    # as of yet unused variables is added
-    devs <- sapply(setdiff(fitvars, modelvars),
-                   function(fitvar) dev.next(fitvar, modelvars))
-
-        # Choose the variable which results in least deviance
-    resids <- c(resids, devs[which.min(devs)])
-    modelvars <- c(modelvars, names(which.min(devs)))
-    
-    # Create a fit involving the chosen variables
-    fits[[length(modelvars)]] <- lm(fitformula(modelvars), mtcars)
-}
-
-fits <- fits[1:length(modelvars)]
-
-# Call the anova function with the incremental fits
-do.call(anova, fits)
-
-# Alternative approach
-fitvars <- c("wt", "disp", "pwr", "drat", "am")
+fitvars <- c("wt", "disp", "pwr", "am", "qsec")
 resids <- dev.next("am")
 modelvars <- "am"
 fits <- vector("list", length(fitvars))
 fits[[1]] <- lm(fitformula("am"), mtcars)
+
+# Create a sequence of fits, starting from mpg ~ am.
+# In each step, choose as the next regressor the one which
+# results in the fit having the smallest deviance (square sum
+# of residuals)
 while (is.null(fits[[length(fits)]]))
 {
     # Determine the deviances of the linear models when each of the
@@ -155,35 +141,92 @@ while (is.null(fits[[length(fits)]]))
     devs <- sapply(setdiff(fitvars, modelvars),
                    function(fitvar) dev.next(fitvar, modelvars))
 
-        # Choose the variable which results in least deviance
+    # Choose the variable which results in least deviance
     resids <- c(resids, devs[which.min(devs)])
     modelvars <- c(modelvars, names(which.min(devs)))
     
     # Create a fit involving the chosen variables
     fits[[length(modelvars)]] <- lm(fitformula(modelvars), mtcars)
-
 }
 
 fits <- fits[1:length(modelvars)]
 
 # Call the anova function with the incremental fits
 do.call(anova, fits)
-
 ```
 
-[drat]: http://www.worktruckonline.com/channel/vehicle-research/article/story/2011/07/10-factors-to-consider-when-spec-ing-drive-axle-ratios-for-medium-duty-trucks.aspx "10 Factors to Consider when Spec’ing Drive-Axle Ratios for Medium-Duty Trucks"
+Model 3, with weight, quarter mile time, and transmission type as the regressors, gives the best fit (in the sense that deviance is minimized) where the attained significance leads us to reject the null hypothesis that the added regressor is not significant. Adding the power-to-weight ratio `pwr` would result in a "better" fit in the sense of smaller residual sum of squares, but the P value of 0.29 indicates that this would lead to overfitting.
+
+The coefficients of the 3-regressor model are
+
+```{r echo=TRUE}
+mpgmodel <- fits[[3]]
+summary(mpgmodel)$coefficients
+```
+```{r confint}
+ammanual.est <- coef(mpgmodel)["ammanual"]
+ammanual.confint <- confint(mpgmodel, "ammanual")
+```
+
+The coefficient `ammanual` quantifies the effect of the transmission type when weight and 1/4 mile time has been adjusted for. The P value is less than 0.05, so we conclude that, with a 95 % probability, `ammanual` differs from zero. According to our model, using a manual transmission as opposed to automatic leads to a `r round(coef(fits[[4]])["ammanual"], 2)` mpg increase in the gas mileage. The respective confidence interval is $[`r round(ammanual.confint[1], 2)`, `r round(ammanual.confint[2], 2)`]$.
+
+The coefficients `wt` and `qsec` indicate that each 1000 lbs increase in weight leads to a gas mileage decrease of `r round(coef(fits[[4]])["wt"], 2)` and each additional second in a quarter-mile run is connected with a `r round(coef(fits[[4]])["qsec"], 2)` increase in gas mileage.
+
+```{r echo=TRUE}
+resplot <- qplot(x = fitted(mpgmodel), y = resid(mpgmodel), data = mtcars,
+                 mapping = aes(color = am),
+                 xlab = "Fitted MPG", ylab = "Residual MPG",
+                 main = "Residual MPG vs. fitted MPG") + 
+    theme(legend.justification=c(0,0), legend.position=c(0,0))
+
+qqplot <- ggplot(data = data.frame(y = resid(mpgmodel)), aes(sample = y)) +
+    stat_qq(dparams = list(sd = sd(resid(mpgmodel)))) +
+    geom_abline(slope = 1, intercept = 0, color = "red") +
+    ylim(-5, 5) +
+    ggtitle("Q-Q plot") +
+    ylab("theoretical ~ N(0, sd(resid)")
+```
+```{r plotresid, out.width="\\textwidth", out.height="0.5\\textwidth", fig.width=10, fig.height=5}
+# Thanks to http://zevross.com/blog/2014/08/04/beautiful-plotting-in-r-a-ggplot2-cheatsheet-3/
+# for the hint on gridExtra
+library(gridExtra)
+
+grid.arrange(resplot, qqplot, ncol=2)
+```
+
+There is no obvious pattern present in the residuals (left panel), which supports our model selection. The Q--Q plot shows that the distribution of the residual quantiles is roughly approximated by a normal distribution (red line).
 
 # Sources
 
- * Hocking (1971) http://www.jstor.org/stable/2529336
- * Henderson and Velleman (1981) http://www.jstor.org/stable/2530428
+ * Ronald R.\ Hocking, "The Analysis and Selection of Variables in Linear Regression," *Biometrics* **32** (1976), pp. 1--49. http://www.jstor.org/stable/2529336
+ * Harold V. Henderson and Paul F. Velleman, "Building Multiple Regression Models Interactively," *Biometrics* **37** (1981), pp. 391--411. http://www.jstor.org/stable/2530428
 
 # Appendix
 
-```{r pairsplot, cache=TRUE, fig.width=12, fig.height=12, out.width="6in", out.height="6in"}
+## Pairs plot of selected varibles
+
+```{r pairsplot, echo=TRUE, cache=TRUE, fig.width=12, fig.height=12, out.width="6in", out.height="6in"}
 
 paircols <- c("mpg", "wt", "disp", "hp" ,"qsec", "pwr")
 ggpairs(mtcars, aes(color = am),
         columns = match(paircols, names(mtcars)))
 
+```
+
+## Source code for init, exploratory plot, and model selection
+
+Initialization:
+```{r ref.label=c("init"), echo=TRUE, results="hide", fig.show="hide"}
+```
+
+Exploratory plot:
+```{r ref.label=c("explore"), echo=TRUE, results="hide", fig.show="hide"}
+```
+
+Model selection:
+```{r ref.label=c("modelselect"), echo=TRUE, results="hide", fig.show="hide"}
+```
+
+Diagnostic plot:
+```{r ref.label=c("plotresid"), echo=TRUE, results="hide", fig.show="hide"}
 ```
