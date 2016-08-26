@@ -121,6 +121,7 @@ dev.next <- function(fitvar, modelvars = NULL)
 # Iteratively add variables to the model until "am" is one of them
 # This may be quite naive approach to automated model selection,
 # but it seems to work, after a fashion at least
+# "Fit priority selection"
 stopifnot("am" %in% fitvars)
 while (!("am" %in% modelvars))
 {
@@ -135,33 +136,6 @@ while (!("am" %in% modelvars))
     
     # Create a fit involving the chosen variables
     fits[[length(modelvars)]] <- lm(fitformula(modelvars), mtcars)
-}
-
-fits <- fits[1:length(modelvars)]
-
-# Call the anova function with the incremental fits
-do.call(anova, fits)
-
-# Alternative approach
-fitvars <- c("wt", "disp", "pwr", "drat", "am")
-resids <- dev.next("am")
-modelvars <- "am"
-fits <- vector("list", length(fitvars))
-fits[[1]] <- lm(fitformula("am"), mtcars)
-while (is.null(fits[[length(fits)]]))
-{
-    # Determine the deviances of the linear models when each of the
-    # as of yet unused variables is added
-    devs <- sapply(setdiff(fitvars, modelvars),
-                   function(fitvar) dev.next(fitvar, modelvars))
-
-        # Choose the variable which results in least deviance
-    resids <- c(resids, devs[which.min(devs)])
-    modelvars <- c(modelvars, names(which.min(devs)))
-    
-    # Create a fit involving the chosen variables
-    fits[[length(modelvars)]] <- lm(fitformula(modelvars), mtcars)
-
 }
 
 fits <- fits[1:length(modelvars)]
