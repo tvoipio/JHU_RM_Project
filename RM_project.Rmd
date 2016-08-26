@@ -64,7 +64,7 @@ library(xtable)
 library(GGally)
 ```
 
-The data consists of design and performance data of `r nrow(mtcars)`, as published in the *Motor Trends* magazine printed in the United States in 1974. For a description of the dataset, see the help page of `mtcars` in R. As suggested by Henderson and Velleman (1981), a new variable `pwr` (hp/1000 lbs) is created for the power-to-weight ratio and used instead of the engine power in order to reduce multicollinearity of the covariates.
+The data consists of design and performance data of `r nrow(mtcars)` cars, as published in the *Motor Trends* magazine printed in the United States in 1974. For a description of the dataset, see the help page of `mtcars` in R. As suggested by Henderson and Velleman (1981), a new variable `pwr` (hp/1000 lbs) is created for the power-to-weight ratio and used instead of the engine power in order to reduce multicollinearity of the covariates.
 
 As a first glance to the data, we plot the gas mileage\footnote{The research question stated in the project assignment exclusively asks for analysis of the gas mileage (MPG), so for consistency reasons the data is not converted into SI units, even though the conversion would make the data more accessible to most parts of the world. Additionally, analysing the consumption via the amount of fuel consumed per fixed distance (e.g., litres/100 km) would be both physically and statistically more reasonable choice, as suggested also by Henderson and Velleman, than gas mileage. However, as the assignment explicitly asks for effect of transmission type on gas mileage, the data will not be converted for analysis. } (measured in miles per gallon) against the vehicle weight, with transmission type being differentiated by color.
 
@@ -96,7 +96,7 @@ The plot shows that the mean gas mileage of cars with manual transmission is sig
 
 Next we try to isolate the effect of the transmission type by fitting a linear model to the data. This entails also model selection, i.e., which variables best explain the variability of MPG, without overfitting. The dataset contains variables which we would expect to be correlated to at least some degree, such as engine displacement and power, and power-to-weight ratio and quarter-mile time (see the Appendix for a pairs plot). In order to keep the model interpretable, we consider the following variables whose connection to gas mileage has a logical explanation: weight, engine displacement, power-to-weight ratio, quarter-mile time, and transmission type.
 
-We approach the model fitting by starting from a model with `am` as the only regressor. Additional regressors are then added, one at a time, always choosing the one which results in the smallest deviance for the resulting model. The ANOVA table resulting from this process is presented below.
+We approach the model fitting by starting from a model with transmission type as the only regressor. Additional regressors are then added, one at a time, always choosing the one which results in the smallest deviance for the resulting model.
 
 ```{r modelselect}
 # Function for constructing a formula containing the desired variables
@@ -140,29 +140,42 @@ while (is.null(fits[[length(fits)]]))
 }
 
 fits <- fits[1:length(modelvars)]
-```
-```{r results="show"}
+
 # Call the anova function with the incremental fits
-do.call(anova, fits)
+an <- do.call(anova, fits)
 ```
 
-Model 3, with weight, quarter mile time, and transmission type as the regressors, gives the best fit (in the sense that deviance is minimized) where the attained significance leads us to reject the null hypothesis that the added regressor is not significant. Adding the power-to-weight ratio `pwr` would result in a "better" fit in the sense of smaller residual sum of squares, but the P value of 0.29 indicates that this would lead to overfitting.
+Our analysis shows that the model with weight, quarter mile time, and transmission type as the regressors gives the best fit (in the sense that residual sum of squares is minimized), with the constraint that the last added regressor is still significant. The significance is measured using the F test, and the null hypothesis that the regressor is not significant ($\alpha < 0.05$). For three regressors, the largest P value is much less than 0.05. Adding the power-to-weight ratio `pwr` would result in a "better" fit in the sense of smaller residual sum of squares, but the P value of 0.29 indicates that this could constitute overfitting, and thus a 3-regressor model is used.
 
 The coefficients of the 3-regressor model are
 
 ```{r results="asis"}
 mpgmodel <- fits[[3]]
-print(xtable(summary(mpgmodel)$coefficients))
+print(xtable(summary(mpgmodel)$coefficients, digits = c(NA, 2, 2, 2, 3)))
 ```
 ```{r confint}
 ammanual.est <- coef(mpgmodel)["ammanual"]
 ammanual.confint <- confint(mpgmodel, "ammanual")
 ```
 
-The coefficient `ammanual` quantifies the effect of the transmission type when weight and 1/4 mile time has been adjusted for. The P value is less than 0.05, so we conclude that, with a 95 % probability, `ammanual` differs from zero and thus the gas mileage difference between manual and automatic transmissions is statistically significant. According to our model, using a manual transmission as opposed to automatic leads to a `r round(coef(mpgmodel)["ammanual"], 2)` mpg *increase* in the gas mileage. The respective confidence interval is $[`r round(ammanual.confint[1], 2)`, `r round(ammanual.confint[2], 2)`]$.
+The coefficient `ammanual` quantifies the effect of the transmission type when weight and 1/4 mile time has been adjusted for. The P value is less than 0.05, so we conclude that, with a 95 % probability, `ammanual` differs from zero and thus the gas mileage difference between manual and automatic transmissions is statistically significant. According to our model, using a manual transmission as opposed to automatic leads to a `r round(coef(mpgmodel)["ammanual"], 2)` mpg *increase* in the gas mileage, i.e., a manual transmission is connected with better mileage. The respective confidence interval is $[`r round(ammanual.confint[1], 2)`, `r round(ammanual.confint[2], 2)`]$.
 
 The coefficients `wt` (weight) and `qsec` (quarter-mile time) indicate that each 1000 lbs increase in weight leads to a gas mileage decrease of `r round(coef(mpgmodel)["wt"], 2)` and each additional second in a quarter-mile run is connected with a `r round(coef(mpgmodel)["qsec"], 2)` increase in gas mileage.
 
+The quality of the fit is assessed via a residual plot and a quantile-quantile plot (see the Appendix). There is no easily discernible pattern and no heteroskedasticity in the residuals when plotted as a function of the fitted values, and the Q--Q plot shows that the residurals are at least roughly speaking normally distributed.
+
+## Sources
+
+ * Ronald R.\ Hocking, "The Analysis and Selection of Variables in Linear Regression," *Biometrics* **32** (1976), pp. 1--49. http://www.jstor.org/stable/2529336
+ * Harold V. Henderson and Paul F. Velleman, "Building Multiple Regression Models Interactively," *Biometrics* **37** (1981), pp. 391--411. http://www.jstor.org/stable/2530428
+
+## Source code
+
+Complete R Markdown source is available in GitHub: https://github.com/tvoipio/JHU_RM_Project
+
+## Appendix
+
+Residual plot and Q--Q plot:
 ```{r plotresid, out.width="5in", out.height="2.5in", fig.width=10, fig.height=5}
 resplot <- qplot(x = fitted(mpgmodel), y = resid(mpgmodel), data = mtcars,
                  mapping = aes(color = am),
@@ -184,19 +197,7 @@ library(gridExtra)
 grid.arrange(resplot, qqplot, ncol=2)
 ```
 
-There is no obvious pattern present in the residuals (left panel), which supports our model selection. The Q--Q plot shows that the distribution of the residual quantiles is roughly approximated by a normal distribution (red line).
-
-## Sources
-
- * Ronald R.\ Hocking, "The Analysis and Selection of Variables in Linear Regression," *Biometrics* **32** (1976), pp. 1--49. http://www.jstor.org/stable/2529336
- * Harold V. Henderson and Paul F. Velleman, "Building Multiple Regression Models Interactively," *Biometrics* **37** (1981), pp. 391--411. http://www.jstor.org/stable/2530428
-
-## Source code
-
-Complete R Markdown source is available in GitHub: https://github.com/tvoipio/JHU_RM_Project
-
-## Appendix: pairs plot of selected varibles
-
+Pairs plot of selected variables::
 ```{r pairsplot, echo=TRUE, cache=TRUE, fig.width=12, fig.height=12, out.width="6in", out.height="6in"}
 
 paircols <- c("mpg", "wt", "disp", "hp" ,"qsec", "pwr")
