@@ -1,12 +1,14 @@
 ---
 title: "Automobile transmission type and fuel mileage"
 author: "Timo Voipio"
-date: "21 Aug 2016"
+date: "26 Aug 2016"
 output:
     pdf_document:
+      includes:
+        in_header: header.tex
       latex_engine: xelatex
-#mainfont: "texgyretermes-regular.otf"
-#mathfont: "texgyretermes-math.otf"
+mainfont: "texgyretermes-regular.otf"
+mathfont: "texgyretermes-math.otf"
 fontsize: 10pt
 classoption: a4paper
 ---
@@ -26,6 +28,10 @@ library(knitr)
 # figure width 4 inches (PDF output), height = width, center figures
 opts_chunk$set(fig.width=4, fig.height=4, fig.align='center')
 
+# Disable the LaTeX comment from the output of print.xtable,
+# enable booktabs style table output
+options(xtable.comment = FALSE, xtable.booktabs = TRUE)
+
 # Increase the penalty for using scientific notation (to format
 # numbers like 10000 normally, not in scientific notation)
 options(scipen = 3)
@@ -36,15 +42,17 @@ if (tidydoc)
 }
 ```
 
-# Executive summary
+## Executive summary
 
-# Introduction
+We analyze the fuel consumption of various automobiles from early 1970s in order to determine whether the transmission type, manual or automatic, significantly affects fuel consumption. Based on a linear model, our results indicate that a manual transmission is connected with better gas mileage ($\alpha < 0.05$). The other covariates present in the linear model are the vehicle weight and the quarter-mile (dragstrip) time.
 
-We analyze the fuel consumption of various automobiles from early 1970s in order to determine whether the transmission type, manual or automatic, significantly affects fuel consumption. The dataset is `mtcars` provided by the R `dataset` package, and it consists of mechanical and performance data on 32 different cars from the model years 1973 and 1974.
+## Introduction
+
+We investigate the gas mileage of the cars in the dataset `mtcars` provided by the R `dataset` package.
 
 The aim of the analysis is two answer two questions: is an automatic or manual transmission better for gas mileage (measured in mpg, miles traveled per one US gallon of fuel consumed), and how the gas mileage is quantitatively affected by the transmission type.
 
-# Data description and exploratory analysis
+## Data description and exploratory analysis
 
 ```{r init}
 
@@ -52,37 +60,19 @@ library(datasets)
 data("mtcars")
 
 library(ggplot2)
+library(xtable)
 library(GGally)
 ```
 
-The data consists of design and performance data of `r nrow(mtcars)`, as published in the *Motor Trends* magazine published in the United States in 1974. According to the dataset documentation, the variables in the following table are included. Text in *italics* gives explanatory notes not present in the original data.
+The data consists of design and performance data of `r nrow(mtcars)`, as published in the *Motor Trends* magazine printed in the United States in 1974. For a description of the dataset, see the help page of `mtcars` in R. As suggested by Henderson and Velleman (1981), a new variable `pwr` (hp/1000 lbs) is created for the power-to-weight ratio and used instead of the engine power in order to reduce multicollinearity of the covariates.
 
-Column name | Variable description and units
-------------|-------------------------------
-`mpg`       | Miles/(US) gallon (*gas mileage; 235 l/100 km = 1/(1 mpg)*)
-`cyl`       | Number of cylinders
-`disp`      | Displacement (cu.in.) (*1 litre = 61.0 cu in*)
-`hp`        | Gross horsepower (*1 kW = 1.34 hp*)
-`drat`      | Rear axle ratio (*driveshaft rpm/axle rpm*\footnote{"the drive-axle ratio is a comparison of the number of gear teeth on the ring gear of the rear axle and the pinion gear on the driveshaft. - - For example, a 4.11:1 ratio means there are 4.11 teeth on the axle's ring gear for each tooth on the driveshaft's pinion gear. Or, put another way, the driveshaft must turn 4.11 times to turn the rear wheels one full revolution. - - typical rule of thumb: The higher the numerical ratio, the slower the gear will be. This higher ratio gives a truck greater pulling power, but since the engine must work harder to spin the driveshaft more times for each turn of the rear wheels, top-end speed and fuel economy are sacrificed." From [worktruckonline.com][drat]})
-`wt`        | Weight (1000 lbs *= 454 kg*)
-`qsec`      | 1/4 mile time
-`vs`        | V/S [*V engine (0) or straight (inline) engine (1)*`r #\footnote{Hocking 1971, p.~12}`]
-`am`        | Transmission (0 = automatic, 1 = manual)
-`gear`      | Number of forward gears
-`carb`      | Number of carburetors
-
-[drat]: http://www.worktruckonline.com/channel/vehicle-research/article/story/2011/07/10-factors-to-consider-when-spec-ing-drive-axle-ratios-for-medium-duty-trucks.aspx "10 Factors to Consider when Spec’ing Drive-Axle Ratios for Medium-Duty Trucks"
-
-The research question stated in the project assignment exclusively asks for analysis of the gas mileage (MPG), so for consistency reasons the data is not converted into SI units, even though the conversion would make the data more accessible to most parts of the world. Additionally, analysing the consumption via the amount of fuel consumed per fixed distance (e.g., litres/100 km) would be both physically and statistically more reasonable choice\footnote{As suggested also by Henderson and Velleman} than gas mileage. However, as the assignment explicitly asks for effect of transmission type on gas mileage, the data will not be converted for analysis. As suggested by Henderson and Velleman, a new variable `pwr` (hp/1000 lbs) is created for the power-to-weight ratio.
+As a first glance to the data, we plot the gas mileage\footnote{The research question stated in the project assignment exclusively asks for analysis of the gas mileage (MPG), so for consistency reasons the data is not converted into SI units, even though the conversion would make the data more accessible to most parts of the world. Additionally, analysing the consumption via the amount of fuel consumed per fixed distance (e.g., litres/100 km) would be both physically and statistically more reasonable choice, as suggested also by Henderson and Velleman, than gas mileage. However, as the assignment explicitly asks for effect of transmission type on gas mileage, the data will not be converted for analysis. } (measured in miles per gallon) against the vehicle weight, with transmission type being differentiated by color.
 
 ```{r explore, fig.height=4/1.609, out.width="3in", out.height="1.86in"}
 
-# Convert transmission type, (cylinder count, carburetor count), and engine type
-# to factor variables
+# Convert transmission type and engine type to factor variables
 mtcars$am <- factor(mtcars$am, levels = c(0, 1),
                     labels = c("auto", "manual"))
-#mtcars$cyl <- factor(mtcars$cyl)
-#mtcars$carb <- factor(mtcars$carb)
 mtcars$vs <- factor(mtcars$vs, levels = c(0, 1),
                     labels = c("v", "straight"))
 
@@ -102,9 +92,9 @@ print(g)
 
 The plot shows that the mean gas mileage of cars with manual transmission is significantly higher (i.e., better) compared to cars with automatic transmission. However, the plot similarly illustrates that the gas mileage seems to have a clear negative correlation with the weight of the vehicle. We therefore conclude that analyzing at the effect of transmission type on the gas mileage cannot meaningfully be done without adjusting for the effect of other factors affecting the fuel efficiency.
 
-# Linear model for gas mileage
+## Linear model for gas mileage
 
-Next we try to isolate the effect of the transmission type by fitting a linear model to the data. This entails also model selection, i.e., which variables best explain the variability of MPG, without overfitting. The dataset contains variables which we would expect to be correlated to at least some degree, such as engine displacement and power, and power-to-weight ratio and quarter-mile time (see the Appendix for a pairs plot). In order to keep the model interpretable, we consider the following variables whose connection to gas mileage has a logical explanation: `wt`, `disp`, `pwr`, `qsec`, and `am`.
+Next we try to isolate the effect of the transmission type by fitting a linear model to the data. This entails also model selection, i.e., which variables best explain the variability of MPG, without overfitting. The dataset contains variables which we would expect to be correlated to at least some degree, such as engine displacement and power, and power-to-weight ratio and quarter-mile time (see the Appendix for a pairs plot). In order to keep the model interpretable, we consider the following variables whose connection to gas mileage has a logical explanation: weight, engine displacement, power-to-weight ratio, quarter-mile time, and transmission type.
 
 We approach the model fitting by starting from a model with `am` as the only regressor. Additional regressors are then added, one at a time, always choosing the one which results in the smallest deviance for the resulting model. The ANOVA table resulting from this process is presented below.
 
@@ -150,7 +140,8 @@ while (is.null(fits[[length(fits)]]))
 }
 
 fits <- fits[1:length(modelvars)]
-
+```
+```{r results="show"}
 # Call the anova function with the incremental fits
 do.call(anova, fits)
 ```
@@ -159,20 +150,20 @@ Model 3, with weight, quarter mile time, and transmission type as the regressors
 
 The coefficients of the 3-regressor model are
 
-```{r echo=TRUE}
+```{r results="asis"}
 mpgmodel <- fits[[3]]
-summary(mpgmodel)$coefficients
+print(xtable(summary(mpgmodel)$coefficients))
 ```
 ```{r confint}
 ammanual.est <- coef(mpgmodel)["ammanual"]
 ammanual.confint <- confint(mpgmodel, "ammanual")
 ```
 
-The coefficient `ammanual` quantifies the effect of the transmission type when weight and 1/4 mile time has been adjusted for. The P value is less than 0.05, so we conclude that, with a 95 % probability, `ammanual` differs from zero. According to our model, using a manual transmission as opposed to automatic leads to a `r round(coef(fits[[4]])["ammanual"], 2)` mpg increase in the gas mileage. The respective confidence interval is $[`r round(ammanual.confint[1], 2)`, `r round(ammanual.confint[2], 2)`]$.
+The coefficient `ammanual` quantifies the effect of the transmission type when weight and 1/4 mile time has been adjusted for. The P value is less than 0.05, so we conclude that, with a 95 % probability, `ammanual` differs from zero and thus the gas mileage difference between manual and automatic transmissions is statistically significant. According to our model, using a manual transmission as opposed to automatic leads to a `r round(coef(mpgmodel)["ammanual"], 2)` mpg *increase* in the gas mileage. The respective confidence interval is $[`r round(ammanual.confint[1], 2)`, `r round(ammanual.confint[2], 2)`]$.
 
-The coefficients `wt` and `qsec` indicate that each 1000 lbs increase in weight leads to a gas mileage decrease of `r round(coef(fits[[4]])["wt"], 2)` and each additional second in a quarter-mile run is connected with a `r round(coef(fits[[4]])["qsec"], 2)` increase in gas mileage.
+The coefficients `wt` (weight) and `qsec` (quarter-mile time) indicate that each 1000 lbs increase in weight leads to a gas mileage decrease of `r round(coef(mpgmodel)["wt"], 2)` and each additional second in a quarter-mile run is connected with a `r round(coef(mpgmodel)["qsec"], 2)` increase in gas mileage.
 
-```{r echo=TRUE}
+```{r plotresid, out.width="5in", out.height="2.5in", fig.width=10, fig.height=5}
 resplot <- qplot(x = fitted(mpgmodel), y = resid(mpgmodel), data = mtcars,
                  mapping = aes(color = am),
                  xlab = "Fitted MPG", ylab = "Residual MPG",
@@ -184,9 +175,8 @@ qqplot <- ggplot(data = data.frame(y = resid(mpgmodel)), aes(sample = y)) +
     geom_abline(slope = 1, intercept = 0, color = "red") +
     ylim(-5, 5) +
     ggtitle("Q-Q plot") +
-    ylab("theoretical ~ N(0, sd(resid)")
-```
-```{r plotresid, out.width="\\textwidth", out.height="0.5\\textwidth", fig.width=10, fig.height=5}
+    xlab("theoretical ~ N(0, sd(resid)")
+
 # Thanks to http://zevross.com/blog/2014/08/04/beautiful-plotting-in-r-a-ggplot2-cheatsheet-3/
 # for the hint on gridExtra
 library(gridExtra)
@@ -196,37 +186,20 @@ grid.arrange(resplot, qqplot, ncol=2)
 
 There is no obvious pattern present in the residuals (left panel), which supports our model selection. The Q--Q plot shows that the distribution of the residual quantiles is roughly approximated by a normal distribution (red line).
 
-# Sources
+## Sources
 
  * Ronald R.\ Hocking, "The Analysis and Selection of Variables in Linear Regression," *Biometrics* **32** (1976), pp. 1--49. http://www.jstor.org/stable/2529336
  * Harold V. Henderson and Paul F. Velleman, "Building Multiple Regression Models Interactively," *Biometrics* **37** (1981), pp. 391--411. http://www.jstor.org/stable/2530428
 
-# Appendix
+## Source code
 
-## Pairs plot of selected varibles
+Complete R Markdown source is available in GitHub: https://github.com/tvoipio/JHU_RM_Project
+
+## Appendix: pairs plot of selected varibles
 
 ```{r pairsplot, echo=TRUE, cache=TRUE, fig.width=12, fig.height=12, out.width="6in", out.height="6in"}
 
 paircols <- c("mpg", "wt", "disp", "hp" ,"qsec", "pwr")
 ggpairs(mtcars, aes(color = am),
         columns = match(paircols, names(mtcars)))
-
-```
-
-## Source code for init, exploratory plot, and model selection
-
-Initialization:
-```{r ref.label=c("init"), echo=TRUE, results="hide", fig.show="hide"}
-```
-
-Exploratory plot:
-```{r ref.label=c("explore"), echo=TRUE, results="hide", fig.show="hide"}
-```
-
-Model selection:
-```{r ref.label=c("modelselect"), echo=TRUE, results="hide", fig.show="hide"}
-```
-
-Diagnostic plot:
-```{r ref.label=c("plotresid"), echo=TRUE, results="hide", fig.show="hide"}
 ```
