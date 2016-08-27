@@ -48,7 +48,7 @@ We analyze the fuel consumption of various automobiles from early 1970s in order
 
 ## Introduction
 
-We investigate the gas mileage of the cars in the dataset `mtcars` provided by the R `dataset` package.
+We investigate the gas mileage of the cars in the dataset `mtcars` provided by the R `datasets` package.
 
 The aim of the analysis is two answer two questions: is an automatic or manual transmission better for gas mileage (measured in mpg, miles traveled per one US gallon of fuel consumed), and how the gas mileage is quantitatively affected by the transmission type.
 
@@ -96,7 +96,7 @@ The plot shows that the mean gas mileage of cars with manual transmission is sig
 
 Next we try to isolate the effect of the transmission type by fitting a linear model to the data. This entails also model selection, i.e., which variables best explain the variability of MPG, without overfitting. The dataset contains variables which we would expect to be correlated to at least some degree, such as engine displacement and power, and power-to-weight ratio and quarter-mile time (see the Appendix for a pairs plot). In order to keep the model interpretable, we consider the following variables whose connection to gas mileage has a logical explanation: weight, engine displacement, power-to-weight ratio, quarter-mile time, and transmission type.
 
-We approach the model fitting by starting from a model with transmission type as the only regressor. Additional regressors are then added, one at a time, always choosing the one which results in the smallest deviance for the resulting model.
+We approach the model fitting by starting from a model with transmission type as the only regressor. Additional regressors are then added, one at a time, always choosing the one which results in the smallest deviance for the resulting model. As a result, we obtain 5 "telescoping" models. Many other models are fitted by the algorithm, but they are not saved as they do not result in the "best" possible fit for the given number of variables.
 
 ```{r modelselect}
 # Function for constructing a formula containing the desired variables
@@ -198,7 +198,7 @@ grid.arrange(resplot, qqplot, ncol=2)
 ```
 
 Pairs plot of selected variables::
-```{r pairsplot, echo=TRUE, cache=TRUE, fig.width=12, fig.height=12, out.width="6in", out.height="6in"}
+```{r pairsplot, cache=TRUE, fig.width=12, fig.height=12, out.width="6in", out.height="6in"}
 
 paircols <- c("mpg", "wt", "disp", "hp" ,"qsec", "pwr")
 ggpairs(mtcars, aes(color = am),
